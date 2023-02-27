@@ -24,11 +24,13 @@ lazy val quillVersion = "4.6.0"
 lazy val pureConfigVersion = "0.17.2"
 lazy val flywayVersion = "9.15.0"
 lazy val postgresVersion = "42.5.4"
+lazy val zioHttpVersion = "0.0.4"
 
 lazy val testDependencies = Seq(
   "dev.zio" %% "zio-test" % zioVersion % "it,test",
   "dev.zio" %% "zio-test-sbt" % zioVersion % "it,test",
-  "dev.zio" %% "zio-test-magnolia" % zioVersion % "it,test"
+  "dev.zio" %% "zio-test-magnolia" % zioVersion % "it,test",
+  "dev.zio" %% "zio-mock" % zioMockVersion % "it,test"
 )
 
 libraryDependencies ++= Seq(
@@ -37,7 +39,7 @@ libraryDependencies ++= Seq(
   "com.github.pureconfig" %% "pureconfig" % pureConfigVersion,
   "io.getquill" %% "quill-jdbc-zio" % quillVersion,
   "dev.zio" %% "zio" % zioVersion,
-  "dev.zio" %% "zio-mock" % zioMockVersion,
+  "dev.zio" %% "zio-http" % zioHttpVersion,
   "dev.zio" %% "zio-interop-cats" % zioInteropCatsVersion
 ) ++ testDependencies
 

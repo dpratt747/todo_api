@@ -15,7 +15,7 @@ trait NotesTagsPersistenceAlg {
 
   def getNote(
       noteID: Long
-  ): ZIO[DataSource, Throwable, Note]
+  ): ZIO[DataSource, Throwable, Option[Note]]
 
 }
 
@@ -28,14 +28,15 @@ final case class NotesTagsPersistence(
 
   override def getNote(
       noteID: Long
-  ): ZIO[DataSource, Throwable, Note] =
-    for {
-      noteO <- notesRepo.getNoteByNoteID(noteID)
-      note <- ZIO
-        .fromOption(noteO)
-        .orElseFail(new RuntimeException("Note not found"))
-      tags <- notesTagsRepository.getAllTagsByNoteID(noteID)
-    } yield Note(note.note, tags.map(_.tag))
+  ): ZIO[DataSource, Throwable, Option[Note]] =
+    notesRepo.getNoteByNoteID(noteID).flatMap {
+      case Some(note) =>
+        notesTagsRepository.getAllTagsByNoteID(note.id).map { tags =>
+          Some(Note(note.note, tags.map(_.tag)))
+        }
+      case None => ZIO.succeed(None)
+    }
+
   override def createNote(
       note: String,
       tags: List[String]

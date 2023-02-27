@@ -1,11 +1,16 @@
 package db.persistence
 
 import db.context.PostgresZioJdbcContextLayer
+import db.repository.NotesRepository.NotesTable
+import db.repository.TagsRepository.TagsTable
 import io.getquill.jdbczio.Quill.DataSource
 import util.mocks._
 import zio._
 import zio.mock._
 import zio.test._
+import domain._
+
+import java.time.OffsetDateTime
 
 object NotesTagsPersistenceSpec extends ZIOSpecDefault {
 
@@ -60,7 +65,8 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
 
           val mockNotesTagsRepoLayer = tags
             .map(_ =>
-              NotesTagsRepositoryMock.InsertIntoNotesTagsTable(
+              NotesTagsRepositoryMock
+                .InsertIntoNotesTagsTable(
                   Assertion.anything,
                   Expectation.valueZIO(_ => ZIO.succeed(1L))
                 )
@@ -83,6 +89,72 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
               mockNotesTagsRepoLayer
             )
       }
+    },
+    test("should get a note that has been inserted") {
+
+      val noteGen = for {
+        string <- Gen.alphaNumericString
+        tags <- Gen.listOf(Gen.alphaNumericString)
+      } yield Note(string, tags)
+
+      checkAll(noteGen) { note =>
+        val mockNotesRepoLayer = NotesRepositoryMock
+          .GetNoteByNoteID(
+            Assertion.equalTo(1L),
+            Expectation.valueZIO(id =>
+              ZIO.succeed(
+                Option(NotesTable(id, note.text, OffsetDateTime.now()))
+              )
+            )
+          )
+          .toLayer
+
+        val notesTagsRepoLayer = NotesTagsRepositoryMock
+          .GetAllTagsByNoteID(
+            Assertion.equalTo(1L),
+            Expectation.value(
+              note.tags.map(TagsTable(1L, _, OffsetDateTime.now()))
+            )
+          )
+          .toLayer
+
+        (for {
+          result <- ZIO.serviceWithZIO[NotesTagsPersistence](
+            _.getNote(1L)
+          )
+        } yield assertTrue(result.contains(note)))
+          .provide(
+            NotesTagsPersistence.live,
+            PostgresZioJdbcContextLayer.live,
+            mockNotesRepoLayer,
+            DataSource.fromPrefix("ctx"),
+            TagsRepositoryMock.empty,
+            notesTagsRepoLayer
+          )
+      }
+    },
+    test("should not try to get tags if there is no note") {
+
+      val mockNotesRepoLayer = NotesRepositoryMock
+        .GetNoteByNoteID(
+          Assertion.equalTo(1L),
+          Expectation.valueZIO(_ => ZIO.succeed(Option.empty[NotesTable]))
+        )
+        .toLayer
+
+      (for {
+        result <- ZIO.serviceWithZIO[NotesTagsPersistence](
+          _.getNote(1L)
+        )
+      } yield assertTrue(result.isEmpty))
+        .provide(
+          NotesTagsPersistence.live,
+          PostgresZioJdbcContextLayer.live,
+          mockNotesRepoLayer,
+          DataSource.fromPrefix("ctx"),
+          TagsRepositoryMock.empty,
+          NotesTagsRepositoryMock.empty
+        )
     }
   )
 

@@ -13,7 +13,7 @@ object ApplicationConfigurationSpec extends ZIOSpecDefault {
       test("should load the configuration from the application.conf file") {
         (for {
           service <- ZIO.service[Configuration]
-        } yield assertTrue(service == Configuration(Context(
+        } yield assertTrue(service == Configuration(Server(8080), Context(
           "org.postgresql.ds.PGSimpleDataSource",
           DataSourceConfig(5432, "postgres", "postgres", "todo", "localhost"),
           30000
@@ -23,6 +23,12 @@ object ApplicationConfigurationSpec extends ZIOSpecDefault {
 
         val source = ConfigSource.string(
           """
+            |server {
+            |
+            |    port = 8080
+            |
+            |}
+            |
             |ctx {
             |
             |    dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
@@ -42,7 +48,7 @@ object ApplicationConfigurationSpec extends ZIOSpecDefault {
 
         (for {
           service <- ZIO.service[Configuration]
-        } yield assertTrue(service == Configuration(Context(
+        } yield assertTrue(service == Configuration(Server(8080), Context(
           "org.postgresql.ds.PGSimpleDataSource",
           DataSourceConfig(5432, "postgres", "postgres", "todo", "localhost"),
           30000

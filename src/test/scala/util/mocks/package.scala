@@ -1,6 +1,8 @@
 package util
 
+import db.persistence._
 import db.repository._
+import program._
 import zio.mock._
 
 package object mocks {
@@ -12,4 +14,10 @@ package object mocks {
 
   @mockable[NotesTagsRepositoryAlg]
   object NotesTagsRepositoryMock
+
+  @mockable[NotesTagsPersistenceAlg]
+  object NotesTagsPersistenceMock
+
+  @mockable[CreateNoteProgramAlg]
+    object CreateNoteProgramMock
 }

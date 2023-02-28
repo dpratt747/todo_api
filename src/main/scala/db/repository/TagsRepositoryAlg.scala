@@ -13,6 +13,8 @@ trait TagsRepositoryAlg {
   ): ZIO[DataSource, SQLException, Option[TagsRepository.TagsTable]]
   def insertTagsTable(tag: String): ZIO[DataSource, SQLException, Long]
   def getAllTags: ZIO[DataSource, SQLException, List[TagsRepository.TagsTable]]
+
+  def getTagIDByTag(tag: String): ZIO[DataSource, SQLException, Option[Long]]
 }
 
 final case class TagsRepository(
@@ -21,13 +23,22 @@ final case class TagsRepository(
   import TagsRepository._
   import ctx._
 
-  def getByTagID(
+  override def getByTagID(
       tagToRetrieve: Long
   ): ZIO[DataSource, SQLException, Option[TagsTable]] = {
     val q = quote {
       query[TagsTable].filter(_.id == lift(tagToRetrieve)).take(1)
     }
     ctx.run(q).map(_.headOption)
+  }
+
+  override def getTagIDByTag(
+      tag: String
+  ): ZIO[DataSource, SQLException, Option[Long]] = {
+    val q = quote {
+      query[TagsTable].filter(_.tag == lift(tag.toUpperCase)).take(1)
+    }
+    ctx.run(q).map(_.headOption.map(_.id))
   }
 
   override def insertTagsTable(

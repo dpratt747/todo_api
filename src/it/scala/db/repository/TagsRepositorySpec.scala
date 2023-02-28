@@ -52,6 +52,20 @@ object TagsRepositorySpec extends ZIOSpecDefault {
           DataSource.fromPrefix("ctx")
         )
     },
+    test("should get the stored tag by its name") {
+      (for {
+        repo <- ZIO.service[TagsRepositoryAlg]
+        _ <- repo.insertTagsTable("Tag 1")
+        tagToRetrieve <- repo.insertTagsTable("Tag 2")
+        _ <- repo.insertTagsTable("Tag 3")
+        result <- repo.getTagIDByTag("tag 2")
+      } yield assertTrue(result == tagToRetrieve))
+        .provide(
+          TagsRepository.live,
+          PostgresZioJdbcContextLayer.live,
+          DataSource.fromPrefix("ctx")
+        )
+    },
     test("should error when duplicate tags are inserted") {
       (for {
         repo <- ZIO.service[TagsRepositoryAlg]

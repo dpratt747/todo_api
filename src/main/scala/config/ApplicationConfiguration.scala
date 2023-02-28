@@ -11,6 +11,10 @@ object ApplicationConfiguration {
   implicit def hint[A]: ProductHint[A] =
     ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
 
+  final case class Server(
+      port: Int
+  )
+
   final case class DataSourceConfig(
       portNumber: Int,
       user: String,
@@ -30,6 +34,7 @@ object ApplicationConfiguration {
   }
 
   final case class Configuration(
+      server: Server,
       ctx: Context
   )
 

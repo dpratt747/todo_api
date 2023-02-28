@@ -2,7 +2,7 @@ package db.persistence
 
 import db.repository._
 import domain._
-import io.getquill._
+import org.postgresql.util.PSQLException
 import zio._
 
 import javax.sql.DataSource
@@ -11,49 +11,74 @@ trait NotesTagsPersistenceAlg {
   def createNote(
       note: String,
       tags: List[String]
-  ): ZIO[DataSource, Throwable, Long]
+  ): Task[Long]
 
   def getNote(
       noteID: Long
-  ): ZIO[DataSource, Throwable, Option[Note]]
+  ): Task[Option[Note]]
 
 }
 
 final case class NotesTagsPersistence(
-    private val ctx: PostgresZioJdbcContext[SnakeCase.type],
     private val notesRepo: NotesRepositoryAlg,
     private val tagsRepo: TagsRepositoryAlg,
-    private val notesTagsRepository: NotesTagsRepositoryAlg
+    private val notesTagsRepository: NotesTagsRepositoryAlg,
+    private val dataSource: DataSource
 ) extends NotesTagsPersistenceAlg {
 
   override def getNote(
       noteID: Long
-  ): ZIO[DataSource, Throwable, Option[Note]] =
-    notesRepo.getNoteByNoteID(noteID).flatMap {
-      case Some(note) =>
-        notesTagsRepository.getAllTagsByNoteID(note.id).map { tags =>
-          Some(Note(note.note, tags.map(_.tag)))
-        }
-      case None => ZIO.succeed(None)
-    }
+  ): Task[Option[Note]] =
+    notesRepo
+      .getNoteByNoteID(noteID)
+      .flatMap {
+        case Some(note) =>
+          notesTagsRepository.getAllTagsByNoteID(note.id).map { tags =>
+            Some(Note(note.note, tags.map(_.tag)))
+          }
+        case None => ZIO.succeed(None)
+      }
+      .provideSomeLayer(ZLayer.succeed(dataSource))
 
   override def createNote(
       note: String,
       tags: List[String]
-  ): ZIO[DataSource, Throwable, Long] = {
-    ctx.transaction(for {
+  ): Task[Long] =
+    (for {
       noteID <- notesRepo.insertNotesTable(note)
-      tagIDs <- ZIO.foreach(tags)(tag => tagsRepo.insertTagsTable(tag))
+      tagIDs <- ZIO.foreach(tags)(tag =>
+        tagsRepo
+          .insertTagsTable(tag)
+          .catchSome {
+            case e: PSQLException if e.getSQLState contains "23505" =>
+              for {
+                idO <- tagsRepo.getTagIDByTag(tag)
+                id <- ZIO
+                  .fromOption(idO)
+                  .orElseFail(
+                    new RuntimeException(
+                      s"Tag $tag was not found in the database, but was not inserted either"
+                    )
+                  )
+              } yield id
+          }
+      )
       _ <- ZIO.foreachDiscard(tagIDs)(tagID =>
         notesTagsRepository.insertIntoNotesTagsTable(tagID, noteID)
       )
     } yield noteID)
-  }
+      .provideSomeLayer(ZLayer.succeed(dataSource))
 
 }
 
 object NotesTagsPersistence {
-  val live
-      : ZLayer[PostgresZioJdbcContext[SnakeCase.type] with NotesRepositoryAlg with TagsRepositoryAlg with NotesTagsRepositoryAlg, Nothing, NotesTagsPersistence] =
+  val live: ZLayer[
+    NotesRepositoryAlg
+      with TagsRepositoryAlg
+      with NotesTagsRepositoryAlg
+      with DataSource,
+    Nothing,
+    NotesTagsPersistence
+  ] =
     ZLayer.fromFunction(NotesTagsPersistence.apply _)
 }

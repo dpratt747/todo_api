@@ -59,7 +59,7 @@ object TagsRepositorySpec extends ZIOSpecDefault {
         tagToRetrieve <- repo.insertTagsTable("Tag 2")
         _ <- repo.insertTagsTable("Tag 3")
         result <- repo.getTagIDByTag("tag 2")
-      } yield assertTrue(result == tagToRetrieve))
+      } yield assertTrue(result.contains(tagToRetrieve)))
         .provide(
           TagsRepository.live,
           PostgresZioJdbcContextLayer.live,

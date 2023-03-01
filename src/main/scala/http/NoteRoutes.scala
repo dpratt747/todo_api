@@ -3,7 +3,6 @@ package http
 import domain.{DecodingException, Note}
 import program.CreateNoteProgramAlg
 import zhttp.http._
-import zhttp.service.Server
 import zio._
 import zio.json._
 
@@ -38,25 +37,20 @@ final case class NoteRoutes(
 
   def routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
-      case req @ Method.GET -> !! / "note" =>
-        basicRequest(for {
-          _ <- ZIO.logInfo(s"Received request: $req")
-          response <- ZIO.succeed(Response.text("Hello World!"))
-        } yield response)
       case req @ Method.POST -> !! / "note" =>
         basicRequest(for {
           _ <- ZIO.logInfo(s"Received request: $req")
           jsonString <- req.body.asString
           note <- decodeJsonString[Note](jsonString)
-          _ <- program.createNote(note)
-        } yield Response.status(Status.Created))
-      case _ => ZIO.succeed(Response.status(Status.NotFound))
+          noteID <- program.createNote(note)
+        } yield Response.json(noteID.toString).setStatus(Status.Created))
+      case _ =>
+        ZIO.succeed(Response.status(Status.NotFound))
     }
 
-//  override def run = Server.start(8080, routes)
 }
 
 object NoteRoutes {
-  val live: ZLayer[CreateNoteProgramAlg, Nothing, NoteRoutes] =
+  val live: ZLayer[CreateNoteProgramAlg, Nothing, NoteRoutesAlg] =
     ZLayer.fromFunction(NoteRoutes.apply _)
 }

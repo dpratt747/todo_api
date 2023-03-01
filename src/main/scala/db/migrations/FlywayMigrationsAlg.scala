@@ -44,7 +44,7 @@ final case class FlywayMigrations(private val config: ApplicationConfiguration.C
 
 object FlywayMigrations {
 
-  val live: ZLayer[Configuration, Nothing, FlywayMigrations] =
+  val live: ZLayer[Configuration, Nothing, FlywayMigrationsAlg] =
     ZLayer.fromZIO(
       for {
         config <- ZIO.serviceWith[Configuration](_.ctx)

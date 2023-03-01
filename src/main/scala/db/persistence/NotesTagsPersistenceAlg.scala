@@ -2,7 +2,7 @@ package db.persistence
 
 import db.repository._
 import domain._
-import org.postgresql.util.PSQLException
+import io.getquill._
 import zio._
 
 import javax.sql.DataSource
@@ -20,6 +20,7 @@ trait NotesTagsPersistenceAlg {
 }
 
 final case class NotesTagsPersistence(
+    private val ctx: PostgresZioJdbcContext[SnakeCase.type],
     private val notesRepo: NotesRepositoryAlg,
     private val tagsRepo: TagsRepositoryAlg,
     private val notesTagsRepository: NotesTagsRepositoryAlg,
@@ -44,41 +45,27 @@ final case class NotesTagsPersistence(
       note: String,
       tags: List[String]
   ): Task[Long] =
-    (for {
-      noteID <- notesRepo.insertNotesTable(note)
-      tagIDs <- ZIO.foreach(tags)(tag =>
-        tagsRepo
-          .insertTagsTable(tag)
-          .catchSome {
-            case e: PSQLException if e.getSQLState contains "23505" =>
-              for {
-                idO <- tagsRepo.getTagIDByTag(tag)
-                id <- ZIO
-                  .fromOption(idO)
-                  .orElseFail(
-                    new RuntimeException(
-                      s"Tag $tag was not found in the database, but was not inserted either"
-                    )
-                  )
-              } yield id
-          }
-      )
-      _ <- ZIO.foreachDiscard(tagIDs)(tagID =>
-        notesTagsRepository.insertIntoNotesTagsTable(tagID, noteID)
-      )
-    } yield noteID)
+    ctx
+      .transaction(for {
+        noteID <- notesRepo.insertNotesTable(note)
+        tagIDs <- ZIO.foreach(tags)(tag =>
+          tagsRepo
+            .getTagIDByTag(tag)
+            .flatMap {
+              case Some(tagID) => ZIO.succeed(tagID)
+              case None        => tagsRepo.insertTagsTable(tag)
+            }
+        )
+        _ <- ZIO.foreachDiscard(tagIDs)(tagID =>
+          notesTagsRepository.insertIntoNotesTagsTable(tagID, noteID)
+        )
+      } yield noteID)
       .provideSomeLayer(ZLayer.succeed(dataSource))
 
 }
 
 object NotesTagsPersistence {
-  val live: ZLayer[
-    NotesRepositoryAlg
-      with TagsRepositoryAlg
-      with NotesTagsRepositoryAlg
-      with DataSource,
-    Nothing,
-    NotesTagsPersistence
-  ] =
+  val live
+      : ZLayer[PostgresZioJdbcContext[SnakeCase.type] with NotesRepositoryAlg with TagsRepositoryAlg with NotesTagsRepositoryAlg with DataSource, Nothing, NotesTagsPersistenceAlg] =
     ZLayer.fromFunction(NotesTagsPersistence.apply _)
 }

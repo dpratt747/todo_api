@@ -16,6 +16,6 @@ final case class CreateNoteProgram(
 }
 
 object CreateNoteProgram {
-  val live: ZLayer[NotesTagsPersistenceAlg, Nothing, CreateNoteProgram] =
+  val live: ZLayer[NotesTagsPersistenceAlg, Nothing, CreateNoteProgramAlg] =
     ZLayer.fromFunction(CreateNoteProgram.apply _)
 }

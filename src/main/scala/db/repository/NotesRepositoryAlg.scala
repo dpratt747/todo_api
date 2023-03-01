@@ -55,6 +55,6 @@ object NotesRepository {
 
   val live: ZLayer[PostgresZioJdbcContext[
     SnakeCase.type
-  ], Nothing, NotesRepository] = ZLayer.fromFunction(NotesRepository.apply _)
+  ], Nothing, NotesRepositoryAlg] = ZLayer.fromFunction(NotesRepository.apply _)
 
 }

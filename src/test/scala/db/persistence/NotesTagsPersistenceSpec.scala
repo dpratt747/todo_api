@@ -3,12 +3,12 @@ package db.persistence
 import db.context.PostgresZioJdbcContextLayer
 import db.repository.NotesRepository.NotesTable
 import db.repository.TagsRepository.TagsTable
+import domain._
 import io.getquill.jdbczio.Quill.DataSource
 import util.mocks._
 import zio._
 import zio.mock._
 import zio.test._
-import domain._
 
 import java.time.OffsetDateTime
 
@@ -26,7 +26,7 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
           .toLayer
 
         (for {
-          result <- ZIO.serviceWithZIO[NotesTagsPersistence](
+          result <- ZIO.serviceWithZIO[NotesTagsPersistenceAlg](
             _.createNote(note, List.empty)
           )
         } yield assertTrue(result == 1L))
@@ -40,7 +40,7 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
           )
       }
     },
-    test("should insert a note and also the tags provided") {
+    test("should insert a note and get the tags if that tag already exists") {
       checkAll(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString)) {
         (note, tags) =>
           val mockNotesRepoLayer = NotesRepositoryMock
@@ -54,9 +54,9 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
           val mockTagsRepoLayer = tags
             .map(tag =>
               TagsRepositoryMock
-                .InsertTagsTable(
+                .GetTagIDByTag(
                   Assertion.equalTo(tag),
-                  Expectation.valueZIO(_ => ZIO.succeed(1L))
+                  Expectation.valueZIO(_ => ZIO.succeed(Some(1L)))
                 )
                 .exactly(1)
             )
@@ -76,7 +76,63 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
             .toLayer
 
           (for {
-            result <- ZIO.serviceWithZIO[NotesTagsPersistence](
+            result <- ZIO.serviceWithZIO[NotesTagsPersistenceAlg](
+              _.createNote(note, tags)
+            )
+          } yield assertTrue(result == 1L))
+            .provide(
+              NotesTagsPersistence.live,
+              PostgresZioJdbcContextLayer.live,
+              mockNotesRepoLayer,
+              DataSource.fromPrefix("ctx"),
+              mockTagsRepoLayer,
+              mockNotesTagsRepoLayer
+            )
+      }
+    },
+    test("should insert a note and insert a tag if it does not exist") {
+      checkAll(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString)) {
+        (note, tags) =>
+          val mockNotesRepoLayer = NotesRepositoryMock
+            .InsertNotesTable(
+              Assertion.equalTo(note),
+              Expectation.valueZIO(_ => ZIO.succeed(1L))
+            )
+            .exactly(1)
+            .toLayer
+
+          val mockNotesTagsRepoLayer = tags
+            .map(_ =>
+              NotesTagsRepositoryMock
+                .InsertIntoNotesTagsTable(
+                  Assertion.anything,
+                  Expectation.valueZIO(_ => ZIO.succeed(1L))
+                )
+                .exactly(1)
+            )
+            .reduce(_ ++ _)
+            .toLayer
+
+          val mockTagsRepoLayer = tags
+            .map(tag =>
+              TagsRepositoryMock
+                .GetTagIDByTag(
+                  Assertion.equalTo(tag),
+                  Expectation.valueZIO(_ => ZIO.succeed(None))
+                )
+                .exactly(1) and
+                TagsRepositoryMock
+                  .InsertTagsTable(
+                    Assertion.equalTo(tag),
+                    Expectation.valueZIO(_ => ZIO.succeed(1L))
+                  )
+                  .exactly(1)
+            )
+            .reduce(_ ++ _)
+            .toLayer
+
+          (for {
+            result <- ZIO.serviceWithZIO[NotesTagsPersistenceAlg](
               _.createNote(note, tags)
             )
           } yield assertTrue(result == 1L))
@@ -119,7 +175,7 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
           .toLayer
 
         (for {
-          result <- ZIO.serviceWithZIO[NotesTagsPersistence](
+          result <- ZIO.serviceWithZIO[NotesTagsPersistenceAlg](
             _.getNote(1L)
           )
         } yield assertTrue(result.contains(note)))
@@ -143,7 +199,7 @@ object NotesTagsPersistenceSpec extends ZIOSpecDefault {
         .toLayer
 
       (for {
-        result <- ZIO.serviceWithZIO[NotesTagsPersistence](
+        result <- ZIO.serviceWithZIO[NotesTagsPersistenceAlg](
           _.getNote(1L)
         )
       } yield assertTrue(result.isEmpty))

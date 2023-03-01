@@ -67,6 +67,6 @@ object TagsRepository {
 
   val live: ZLayer[PostgresZioJdbcContext[
     SnakeCase.type
-  ], Nothing, TagsRepository] = ZLayer.fromFunction(TagsRepository.apply _)
+  ], Nothing, TagsRepositoryAlg] = ZLayer.fromFunction(TagsRepository.apply _)
 
 }

@@ -18,4 +18,17 @@ package object http {
       .fromEither(jsonString.fromJson[A])
       .mapError(str => DecodingException(str))
 
+  val basicRequest: Task[Response] => Task[Response] =
+    _.catchSome {
+      case e: DecodingException =>
+        ZIO.logErrorCause(
+          "Failed attempt to decode the json body",
+          Cause.fail(e)
+        ) *>
+          ZIO.attempt(Response.json(e.message).setStatus(Status.BadRequest))
+      case e =>
+        ZIO.logErrorCause("Something unexpected happened", Cause.fail(e)) *>
+          ZIO.attempt(Response.status(Status.InternalServerError))
+    }
+
 }

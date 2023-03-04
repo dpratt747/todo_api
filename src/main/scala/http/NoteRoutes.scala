@@ -1,7 +1,7 @@
 package http
 
-import domain.{DecodingException, Note, NoteNotFoundException}
-import program.{CreateNoteProgramAlg, GetNoteProgramAlg}
+import domain.Note
+import program._
 import zhttp.http._
 import zio._
 import zio.json._
@@ -16,25 +16,6 @@ final case class NoteRoutes(
     private val getNoteProgram: GetNoteProgramAlg
 ) extends NoteRoutesAlg {
 
-  private val basicRequest: Task[Response] => Task[Response] =
-    _.catchSome {
-      case e: DecodingException =>
-        ZIO.logErrorCause(
-          "Failed attempt to decode the json body",
-          Cause.fail(e)
-        ) *>
-          ZIO.attempt(Response.json(e.message).setStatus(Status.BadRequest))
-      case e: NoteNotFoundException =>
-        ZIO.logErrorCause(
-          "Failed attempt to retrieve the note",
-          Cause.fail(e)
-        ) *>
-          ZIO.attempt(Response.json(e.message).setStatus(Status.NotFound))
-      case e =>
-        ZIO.logErrorCause("Something unexpected happened", Cause.fail(e)) *>
-          ZIO.attempt(Response.status(Status.InternalServerError))
-    }
-
   def routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
       case req @ Method.POST -> Path.root / "note" =>
@@ -46,10 +27,13 @@ final case class NoteRoutes(
       case Method.GET -> Path.root / "note" / long(noteID) =>
         basicRequest(for {
           noteO <- getNoteProgram.getNote(noteID)
-          note <- ZIO
+          response <- ZIO
             .fromOption(noteO)
-            .orElseFail(NoteNotFoundException("Note not found"))
-        } yield Response.json(note.toJson).setStatus(Status.Ok))
+            .fold(
+              _ => Response.json("Note not found").setStatus(Status.NotFound),
+              note => Response.json(note.toJson).setStatus(Status.Ok)
+            )
+        } yield response)
       case _ =>
         ZIO.succeed(Response.status(Status.NotFound))
     } @@ logRequestResponse

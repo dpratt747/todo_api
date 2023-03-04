@@ -1,6 +1,7 @@
 package db.persistence
 
 import db.repository._
+import domain.CustomTypes.NoteId
 import domain._
 import io.getquill._
 import zio._
@@ -11,10 +12,10 @@ trait NotesTagsPersistenceAlg {
   def createNote(
       note: String,
       tags: List[String]
-  ): Task[Long]
+  ): Task[NoteId]
 
   def getNote(
-      noteID: Long
+      noteID: NoteId
   ): Task[Option[Note]]
 
 }
@@ -28,7 +29,7 @@ final case class NotesTagsPersistence(
 ) extends NotesTagsPersistenceAlg {
 
   override def getNote(
-      noteID: Long
+      noteID: NoteId
   ): Task[Option[Note]] =
     notesRepo
       .getNoteByNoteID(noteID)
@@ -44,7 +45,7 @@ final case class NotesTagsPersistence(
   override def createNote(
       note: String,
       tags: List[String]
-  ): Task[Long] =
+  ): Task[NoteId] =
     ctx
       .transaction(for {
         noteID <- notesRepo.insertNotesTable(note)

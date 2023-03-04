@@ -3,6 +3,7 @@ package db.repository
 import config.ApplicationConfiguration
 import db.context.PostgresZioJdbcContextLayer
 import db.migrations.{FlywayMigrations, FlywayMigrationsAlg}
+import domain.CustomTypes.NoteId
 import io.getquill.jdbczio.Quill.DataSource
 import pureconfig.ConfigSource
 import zio._
@@ -15,7 +16,7 @@ object NotesRepositorySpec extends ZIOSpecDefault {
       (for {
         repo <- ZIO.service[NotesRepositoryAlg]
         result <- repo.insertNotesTable("test note")
-      } yield assertTrue(result == 1L))
+      } yield assertTrue(result == NoteId(1L)))
         .provide(
           NotesRepository.live,
           PostgresZioJdbcContextLayer.live,
@@ -38,7 +39,7 @@ object NotesRepositorySpec extends ZIOSpecDefault {
     test("should fail to retrieve a note by its noteID") {
       (for {
         repo <- ZIO.service[NotesRepositoryAlg]
-        result <- repo.getNoteByNoteID(20L)
+        result <- repo.getNoteByNoteID(NoteId(20L))
       } yield assertTrue(result.isEmpty))
         .provide(
           NotesRepository.live,
@@ -63,11 +64,18 @@ object NotesRepositorySpec extends ZIOSpecDefault {
   ) @@ before(
     ZIO
       .serviceWithZIO[FlywayMigrationsAlg](_.migrate)
-      .provide(FlywayMigrations.live, ApplicationConfiguration.live(ConfigSource.default))
+      .provide(
+        FlywayMigrations.live,
+        ApplicationConfiguration.live(ConfigSource.default)
+      )
   ) @@ after(
     ZIO
       .serviceWithZIO[FlywayMigrationsAlg](_.clean)
-      .provide(FlywayMigrations.live, ApplicationConfiguration.live(ConfigSource.default)).ignore
+      .provide(
+        FlywayMigrations.live,
+        ApplicationConfiguration.live(ConfigSource.default)
+      )
+      .ignore
   ) @@ sequential
 
 }

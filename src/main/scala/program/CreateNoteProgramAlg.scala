@@ -1,9 +1,10 @@
 package program
 
 import db.persistence._
+import domain.CustomTypes._
 import zio._
 trait CreateNoteProgramAlg {
-  def createNote(note: domain.Note): Task[Long]
+  def createNote(note: domain.Note): Task[NoteId]
 }
 
 final case class CreateNoteProgram(
@@ -11,7 +12,7 @@ final case class CreateNoteProgram(
 ) extends CreateNoteProgramAlg {
   override def createNote(
       note: domain.Note
-  ): Task[Long] =
+  ): Task[NoteId] =
     persistence.createNote(note.text, note.tags)
 }
 

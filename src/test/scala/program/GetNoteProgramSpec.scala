@@ -1,15 +1,16 @@
 package program
 
+import domain.CustomTypes.NoteId
+import util.generators.Generators
 import util.mocks._
 import zio._
 import zio.mock.Expectation
 import zio.test._
 
-object GetNoteProgramSpec extends ZIOSpecDefault {
+object GetNoteProgramSpec extends ZIOSpecDefault with Generators {
   def spec = suite("GetNoteProgram")(
     test("should get a note") {
-      val noteGen = Gen.alphaNumericString.map(domain.Note(_, List.empty))
-      checkAll(noteGen, Gen.long) { (note, noteId) =>
+      checkAll(noteGen, noteIdGen) { (note, noteId) =>
         val notesTagsPersistenceMockLayer = NotesTagsPersistenceMock
           .GetNote(
             Assertion.equalTo(noteId),

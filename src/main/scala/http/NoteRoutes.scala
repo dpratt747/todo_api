@@ -1,5 +1,6 @@
 package http
 
+import domain.CustomTypes._
 import domain.Note
 import program._
 import zhttp.http._
@@ -24,7 +25,7 @@ final case class NoteRoutes(
           note <- decodeJsonString[Note](jsonString)
           noteID <- createNoteProgram.createNote(note)
         } yield Response.json(noteID.toString).setStatus(Status.Created))
-      case Method.GET -> Path.root / "note" / long(noteID) =>
+      case Method.GET -> Path.root / "note" / decodeNoteId(noteID) =>
         basicRequest(for {
           noteO <- getNoteProgram.getNote(noteID)
           response <- ZIO

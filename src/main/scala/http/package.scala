@@ -1,8 +1,10 @@
+import domain.CustomTypes._
 import zhttp.http._
 import zio._
 import zio.json._
 import domain._
 package object http {
+  object decodeNoteId extends RouteDecode(str => NoteId.apply(str.toLong))
 
   val logRequestResponse
       : Middleware[Any, Nothing, Request, Response, Request, Response] =

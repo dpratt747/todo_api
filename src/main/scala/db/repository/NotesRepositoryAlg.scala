@@ -1,5 +1,6 @@
 package db.repository
 
+import domain.CustomTypes.NoteId
 import io.getquill._
 import zio._
 
@@ -8,9 +9,9 @@ import java.time.OffsetDateTime
 import javax.sql.DataSource
 
 trait NotesRepositoryAlg {
-  def getNoteByNoteID(noteID: Long): ZIO[DataSource, SQLException, Option[NotesRepository.NotesTable]]
+  def getNoteByNoteID(noteID: NoteId): ZIO[DataSource, SQLException, Option[NotesRepository.NotesTable]]
 
-  def insertNotesTable(note: String): ZIO[DataSource, SQLException, Long]
+  def insertNotesTable(note: String): ZIO[DataSource, SQLException, NoteId]
   def getAllNotes
       : ZIO[DataSource, SQLException, List[NotesRepository.NotesTable]]
 }
@@ -23,7 +24,7 @@ final case class NotesRepository(
 
   override def insertNotesTable(
       note: String
-  ): ZIO[DataSource, SQLException, Long] = {
+  ): ZIO[DataSource, SQLException, NoteId] = {
     val q = quote {
       query[NotesTable].insert(_.note -> lift(note)).returning(_.id)
     }
@@ -31,7 +32,7 @@ final case class NotesRepository(
     ctx.run(q)
   }
 
-  override def getNoteByNoteID(noteID: Long): ZIO[DataSource, SQLException, Option[NotesTable]] = {
+  override def getNoteByNoteID(noteID: NoteId): ZIO[DataSource, SQLException, Option[NotesTable]] = {
     val q = quote {
       query[NotesTable].filter(_.id == lift(noteID)).take(1)
     }
@@ -48,7 +49,7 @@ final case class NotesRepository(
 
 object NotesRepository {
   final case class NotesTable(
-      id: Long,
+      id: NoteId,
       note: String,
       createdAt: OffsetDateTime
   )

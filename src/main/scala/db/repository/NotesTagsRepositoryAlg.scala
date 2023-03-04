@@ -1,6 +1,7 @@
 package db.repository
 
 import db.repository.TagsRepository.TagsTable
+import domain.CustomTypes.NoteId
 import io.getquill._
 import zio._
 
@@ -10,15 +11,15 @@ import javax.sql.DataSource
 trait NotesTagsRepositoryAlg {
   def insertIntoNotesTagsTable(
       tagID: Long,
-      noteID: Long
+      noteID: NoteId
   ): ZIO[DataSource, SQLException, Long]
 
   def getAllTagIDsByNoteID(
-      noteID: Long
+      noteID: NoteId
   ): ZIO[DataSource, SQLException, List[Long]]
 
   def getAllTagsByNoteID(
-      noteID: Long
+      noteID: NoteId
   ): ZIO[DataSource, SQLException, List[TagsTable]]
 }
 
@@ -30,7 +31,7 @@ final case class NotesTagsRepository(
 
   override def insertIntoNotesTagsTable(
       tagID: Long,
-      noteID: Long
+      noteID: NoteId
   ): ZIO[DataSource, SQLException, Long] = {
     val q = quote {
       query[NotesTagsTable]
@@ -44,7 +45,7 @@ final case class NotesTagsRepository(
   }
 
   override def getAllTagsByNoteID(
-      noteID: Long
+      noteID: NoteId
   ): ZIO[DataSource, SQLException, List[TagsTable]] = {
     val q = quote {
       query[NotesTagsTable]
@@ -57,7 +58,7 @@ final case class NotesTagsRepository(
   }
 
   override def getAllTagIDsByNoteID(
-      noteID: Long
+      noteID: NoteId
   ): ZIO[DataSource, SQLException, List[Long]] = {
     val q = quote {
       query[NotesTagsTable].filter(_.noteId == lift(noteID)).map(_.tagId)
@@ -69,7 +70,7 @@ final case class NotesTagsRepository(
 object NotesTagsRepository {
   private final case class NotesTagsTable(
       id: Long,
-      noteId: Long,
+      noteId: NoteId,
       tagId: Long
   )
 

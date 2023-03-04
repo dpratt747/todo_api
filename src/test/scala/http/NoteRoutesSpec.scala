@@ -1,5 +1,6 @@
 package http
 
+import util.generators.Generators
 import util.mocks._
 import zhttp.http._
 import zio.test._
@@ -7,7 +8,7 @@ import zio._
 import zio.json._
 import zio.mock._
 
-object NoteRoutesSpec extends ZIOSpecDefault {
+object NoteRoutesSpec extends ZIOSpecDefault with Generators {
 
   private val basicRouteFailureCases = suite("Basic failure cases")(
     test("should return 404 when path is not found") {
@@ -31,14 +32,13 @@ object NoteRoutesSpec extends ZIOSpecDefault {
 
   private val noteCreation = suite("Post /note")(
     test("should create a note") {
-      val noteGen = Gen.alphaNumericString.map(domain.Note(_, List.empty))
-      checkAll(noteGen) { note =>
+      checkAll(noteGen, noteIdGen) { (note, noteId) =>
         val path = Path.decode("/note")
 
         val mockCreateNoteProgramLayer = CreateNoteProgramMock
           .CreateNote(
             Assertion.equalTo(note),
-            Expectation.valueZIO(_ => ZIO.succeed(1L))
+            Expectation.valueZIO(_ => ZIO.succeed(noteId))
           )
           .exactly(1)
           .toLayer
@@ -123,8 +123,7 @@ object NoteRoutesSpec extends ZIOSpecDefault {
 
   private val getNote = suite("Get /note/:id")(
     test("should return a note") {
-      val noteGen = Gen.alphaNumericString.map(domain.Note(_, List.empty))
-      checkAll(noteGen, Gen.long) { (note, noteId) =>
+      checkAll(noteGen, noteIdGen) { (note, noteId) =>
         val path = Path.decode(s"/note/$noteId")
         val request: Request = Request(
           url = URL(path)
@@ -151,7 +150,7 @@ object NoteRoutesSpec extends ZIOSpecDefault {
       }
     },
     test("should return NotFound when note is not found") {
-      checkAll(Gen.long) { noteId =>
+      checkAll(noteIdGen) { noteId =>
         val path = Path.decode(s"/note/$noteId")
         val request: Request = Request(
           url = URL(path)
@@ -180,7 +179,7 @@ object NoteRoutesSpec extends ZIOSpecDefault {
     test(
       "should return InternalServerError when something unexpected happens"
     ) {
-      checkAll(Gen.long) { noteId =>
+      checkAll(noteIdGen) { noteId =>
         val path = Path.decode(s"/note/$noteId")
         val request: Request = Request(
           url = URL(path)

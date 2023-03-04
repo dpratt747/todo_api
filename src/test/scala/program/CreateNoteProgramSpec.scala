@@ -1,26 +1,27 @@
 package program
 
+import domain.CustomTypes._
+import util.generators.Generators
 import util.mocks._
 import zio._
 import zio.mock.Expectation
 import zio.test._
 
-object CreateNoteProgramSpec extends ZIOSpecDefault {
+object CreateNoteProgramSpec extends ZIOSpecDefault with Generators {
   def spec = suite("CreateNoteProgram")(
     test("should create a note") {
-      val noteGen = Gen.alphaNumericString.map(domain.Note(_, List.empty))
-      checkAll(noteGen) { note =>
+      checkAll(noteGen, noteIdGen) { (note, noteId) =>
         val notesTagsPersistenceMockLayer = NotesTagsPersistenceMock
           .CreateNote(
             Assertion.equalTo((note.text, note.tags)),
-            Expectation.valueZIO(_ => ZIO.succeed(1L))
+            Expectation.valueZIO(_ => ZIO.succeed(noteId))
           )
           .exactly(1)
           .toLayer
 
         val program = for {
           res <- ZIO.serviceWithZIO[CreateNoteProgramAlg](_.createNote(note))
-        } yield assertTrue(res == 1L)
+        } yield assertTrue(res == noteId)
         program.provide(
           CreateNoteProgram.live,
           notesTagsPersistenceMockLayer

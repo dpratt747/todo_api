@@ -29,6 +29,7 @@ lazy val flywayVersion = "9.15.0"
 lazy val postgresVersion = "42.5.4"
 lazy val zioHttpVersion = "2.0.0-RC11"
 lazy val zioHttpTestVersion = "2.0.0-RC9"
+lazy val zioPreludeVersion = "1.0.0-RC17"
 
 lazy val testDependencies = Seq(
   "dev.zio" %% "zio-test" % zioVersion % "it,test",
@@ -46,7 +47,8 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio" % zioVersion,
   "io.d11" %% "zhttp" % zioHttpVersion,
   "dev.zio" %% "zio-json" % zioJsonVersion,
-  "dev.zio" %% "zio-interop-cats" % zioInteropCatsVersion
+  "dev.zio" %% "zio-interop-cats" % zioInteropCatsVersion,
+  "dev.zio" %% "zio-prelude" % zioPreludeVersion
 ) ++ testDependencies
 
 testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")

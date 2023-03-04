@@ -21,7 +21,11 @@ object NoteRoutesSpec extends ZIOSpecDefault {
         response <- route.routes(request)
       } yield assertTrue(response.status == Status.NotFound)
 
-      program.provide(NoteRoutes.live, CreateNoteProgramMock.empty)
+      program.provide(
+        NoteRoutes.live,
+        CreateNoteProgramMock.empty,
+        GetNoteProgramMock.empty
+      )
     }
   )
 
@@ -54,6 +58,7 @@ object NoteRoutesSpec extends ZIOSpecDefault {
 
         program.provide(
           mockCreateNoteProgramLayer,
+          GetNoteProgramMock.empty,
           NoteRoutes.live
         )
       }
@@ -71,9 +76,15 @@ object NoteRoutesSpec extends ZIOSpecDefault {
         response <- route.routes(request)
       } yield assertTrue(response.status == Status.BadRequest)
 
-      program.provide(NoteRoutes.live, CreateNoteProgramMock.empty)
+      program.provide(
+        NoteRoutes.live,
+        CreateNoteProgramMock.empty,
+        GetNoteProgramMock.empty
+      )
     },
-    test("should return Internal Server Error when something unexpected happens") {
+    test(
+      "should return Internal Server Error when something unexpected happens"
+    ) {
       val noteGen = Gen.alphaNumericString.map(domain.Note(_, List.empty))
       checkAll(noteGen) { note =>
         val path = Path.decode("/note")
@@ -81,7 +92,9 @@ object NoteRoutesSpec extends ZIOSpecDefault {
         val mockCreateNoteProgramLayer = CreateNoteProgramMock
           .CreateNote(
             Assertion.equalTo(note),
-            Expectation.failureZIO(_ => ZIO.fail(new Exception("Failed to create a note")))
+            Expectation.failureZIO(_ =>
+              ZIO.fail(new Exception("Failed to create a note"))
+            )
           )
           .exactly(1)
           .toLayer
@@ -101,7 +114,97 @@ object NoteRoutesSpec extends ZIOSpecDefault {
 
         program.provide(
           mockCreateNoteProgramLayer,
+          GetNoteProgramMock.empty,
           NoteRoutes.live
+        )
+      }
+    }
+  )
+
+  private val getNote = suite("Get /note/:id")(
+    test("should return a note") {
+      val noteGen = Gen.alphaNumericString.map(domain.Note(_, List.empty))
+      checkAll(noteGen, Gen.long) { (note, noteId) =>
+        val path = Path.decode(s"/note/$noteId")
+        val request: Request = Request(
+          url = URL(path)
+        )
+
+        val mockGetNoteProgramLayer = GetNoteProgramMock
+          .GetNote(
+            Assertion.equalTo(noteId),
+            Expectation.valueZIO(_ => ZIO.succeed(Some(note)))
+          )
+          .exactly(1)
+          .toLayer
+
+        val program = for {
+          route <- ZIO.service[NoteRoutesAlg]
+          response <- route.routes(request)
+        } yield assertTrue(response.status == Status.Ok)
+
+        program.provide(
+          NoteRoutes.live,
+          CreateNoteProgramMock.empty,
+          mockGetNoteProgramLayer
+        )
+      }
+    },
+    test("should return NotFound when note is not found") {
+      checkAll(Gen.long) { noteId =>
+        val path = Path.decode(s"/note/$noteId")
+        val request: Request = Request(
+          url = URL(path)
+        )
+
+        val mockGetNoteProgramLayer = GetNoteProgramMock
+          .GetNote(
+            Assertion.equalTo(noteId),
+            Expectation.valueZIO(_ => ZIO.succeed(None))
+          )
+          .exactly(1)
+          .toLayer
+
+        val program = for {
+          route <- ZIO.service[NoteRoutesAlg]
+          response <- route.routes(request)
+        } yield assertTrue(response.status == Status.NotFound)
+
+        program.provide(
+          NoteRoutes.live,
+          CreateNoteProgramMock.empty,
+          mockGetNoteProgramLayer
+        )
+      }
+    },
+    test(
+      "should return InternalServerError when something unexpected happens"
+    ) {
+      checkAll(Gen.long) { noteId =>
+        val path = Path.decode(s"/note/$noteId")
+        val request: Request = Request(
+          url = URL(path)
+        )
+
+        val mockGetNoteProgramLayer = GetNoteProgramMock
+          .GetNote(
+            Assertion.equalTo(noteId),
+            Expectation.failureZIO(_ =>
+              ZIO.fail(new Exception("Failed to get a note"))
+            )
+          )
+          .exactly(1)
+          .toLayer
+
+        val program = for {
+          route <- ZIO.service[NoteRoutesAlg]
+          response <- route.routes(request)
+        } yield assertTrue(response.status == Status.InternalServerError)
+
+        program.provide(
+          NoteRoutes.live,
+          CreateNoteProgramMock.empty,
+          mockGetNoteProgramLayer
         )
       }
     }
@@ -109,6 +212,7 @@ object NoteRoutesSpec extends ZIOSpecDefault {
 
   def spec = suite("NoteRoutes")(
     noteCreation,
+    getNote,
     basicRouteFailureCases
   )
 }

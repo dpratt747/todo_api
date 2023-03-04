@@ -1,7 +1,7 @@
 package http
 
-import domain.{DecodingException, Note}
-import program.CreateNoteProgramAlg
+import domain.{DecodingException, Note, NoteNotFoundException}
+import program.{CreateNoteProgramAlg, GetNoteProgramAlg}
 import zhttp.http._
 import zio._
 import zio.json._
@@ -12,7 +12,8 @@ trait NoteRoutesAlg {
 }
 
 final case class NoteRoutes(
-    private val program: CreateNoteProgramAlg
+    private val createNoteProgram: CreateNoteProgramAlg,
+    private val getNoteProgram: GetNoteProgramAlg
 ) extends NoteRoutesAlg {
 
   private val basicRequest: Task[Response] => Task[Response] =
@@ -23,6 +24,12 @@ final case class NoteRoutes(
           Cause.fail(e)
         ) *>
           ZIO.attempt(Response.status(Status.BadRequest))
+      case e: NoteNotFoundException =>
+        ZIO.logErrorCause(
+          "Failed attempt to retrieve the note",
+          Cause.fail(e)
+        ) *>
+          ZIO.attempt(Response.status(Status.NotFound))
       case e =>
         ZIO.logErrorCause("Something unexpected happened", Cause.fail(e)) *>
           ZIO.attempt(Response.status(Status.InternalServerError))
@@ -37,13 +44,21 @@ final case class NoteRoutes(
 
   def routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
-      case req @ Method.POST -> !! / "note" =>
+      case req @ Method.POST -> Path.root / "note" =>
         basicRequest(for {
           _ <- ZIO.logInfo(s"Received request: $req")
           jsonString <- req.body.asString
           note <- decodeJsonString[Note](jsonString)
-          noteID <- program.createNote(note)
+          noteID <- createNoteProgram.createNote(note)
         } yield Response.json(noteID.toString).setStatus(Status.Created))
+      case req @ Method.GET -> Path.root / "note" / noteID =>
+        basicRequest(for {
+          _ <- ZIO.logInfo(s"Received request: $req")
+          noteO <- getNoteProgram.getNote(noteID.toLong)
+          note <- ZIO
+            .fromOption(noteO)
+            .orElseFail(NoteNotFoundException("Note not found"))
+        } yield Response.json(note.toJson).setStatus(Status.Ok))
       case _ =>
         ZIO.succeed(Response.status(Status.NotFound))
     }
@@ -51,6 +66,10 @@ final case class NoteRoutes(
 }
 
 object NoteRoutes {
-  val live: ZLayer[CreateNoteProgramAlg, Nothing, NoteRoutesAlg] =
+  val live: ZLayer[
+    CreateNoteProgramAlg with GetNoteProgramAlg,
+    Nothing,
+    NoteRoutesAlg
+  ] =
     ZLayer.fromFunction(NoteRoutes.apply _)
 }

@@ -19,5 +19,8 @@ package object mocks {
   object NotesTagsPersistenceMock
 
   @mockable[CreateNoteProgramAlg]
-    object CreateNoteProgramMock
+  object CreateNoteProgramMock
+
+  @mockable[GetNoteProgramAlg]
+  object GetNoteProgramMock
 }

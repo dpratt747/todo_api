@@ -7,7 +7,7 @@ import db.persistence.NotesTagsPersistence
 import db.repository._
 import http.{NoteRoutes, NoteRoutesAlg}
 import io.getquill.jdbczio.Quill.DataSource
-import program.CreateNoteProgram
+import program.{CreateNoteProgram, GetNoteProgram}
 import pureconfig.ConfigSource
 import zhttp.service.Server
 import zio._
@@ -25,6 +25,7 @@ object WebServer extends ZIOAppDefault {
         ApplicationConfiguration.live(ConfigSource.default),
         NoteRoutes.live,
         CreateNoteProgram.live,
+        GetNoteProgram.live,
         NotesTagsPersistence.live,
         NotesRepository.live,
         TagsRepository.live,

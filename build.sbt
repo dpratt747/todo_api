@@ -11,6 +11,8 @@ lazy val root = (project in file("."))
     Defaults.itSettings
   )
 
+IntegrationTest / parallelExecution := false
+
 scalacOptions ++= Seq(
   "-Ymacro-annotations"
 )
